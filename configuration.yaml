@@ -1,0 +1,24 @@
+
+cf1400:
+  base_urls:
+    - https://www.cbp.gov/sites/default/files/
+    - https://www.cbp.gov/sites/default/files/assets/documents/
+  filename_base: CF1400 - Record of Vessel in Foreign Trade - Entrances
+  download_dir: downloads
+
+database:
+  dbname: cf_1400
+  user: postgres
+  password: postgres
+  host: localhost
+  port: 5432
+
+schedule:
+  interval_hours: 24  # Try to download every 24 hours
+
+downloads_dir: ../cf_1400_downloader/downloads/
+converted_dir: ./converted/
+
+scheduler:
+  enabled: false         # ← Set to false for debug mode
+  interval_minutes: 1
