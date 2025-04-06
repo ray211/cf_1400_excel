@@ -18,6 +18,37 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class CF1400Excel:
+
+    """
+    CF1400Excel handles the processing of CF-1400 PDF files into structured Excel spreadsheets
+    and inserts extracted data into a Postgres database.
+
+    Responsibilities:
+    - Load and manage configuration settings
+    - Query and update metadata from the `cf1400_files` and `cf1400_excel_files` tables
+    - Convert tabular data from CF-1400 PDFs into Excel files using `pdfplumber` and `pandas`
+    - Insert cleaned data into the `foreign_trade_entrances` table
+    - Track which files have already been processed
+
+    Attributes:
+        config (dict): Configuration loaded from a YAML file.
+        db_config (dict): Subset of config with Postgres connection details.
+        downloads_dir (Path): Path to directory containing downloaded CF-1400 PDFs.
+        converted_dir (Path): Path to directory where Excel files will be saved.
+        pdf_path (Path): Path to the current PDF file being processed.
+        excel_path (Path): Path to the Excel file being generated.
+
+    Example usage:
+        converter = CF1400Excel()
+        converter.process_pdf_file("2024-03_CF1400 - Record of Vessel in Foreign Trade - Entrances.pdf")
+
+    Dependencies:
+        - pdfplumber
+        - pandas
+        - psycopg2
+        - PyYAML
+    """
+
     
     INSERT_FOREIGN_TRADE_ENTRANCE_SQL = """
         INSERT INTO foreign_trade_entrances (
@@ -63,25 +94,6 @@ class CF1400Excel:
         self.downloads_dir = Path(self.config.get("downloads_dir")).resolve()
         self.converted_dir = Path(self.config.get("converted_dir", "./converted")).resolve()
         self.converted_dir.mkdir(exist_ok=True)
-        
-    def callback(ch, method, properties, body):
-        filename = body.decode()
-        print(f"[RabbitMQ] Received file to process: {filename}")
-        converter = CF1400Excel()
-        converter.process_pdf_file(filename)
-        
-    def start_consumer():
-        try:
-            connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host='rabbitmq', port=5672)
-            )
-            channel = connection.channel()
-            channel.queue_declare(queue='cf1400_files')
-            channel.basic_consume(queue='cf1400_files', on_message_callback=callback, auto_ack=True)
-            print("[RabbitMQ] Waiting for messages...")
-            channel.start_consuming()
-        except Exception as e:
-            print(f"[RabbitMQ] Consumer error: {e}")
 
     def load_config(self, path: str) -> dict:
         """Loads configuration from a YAML file."""

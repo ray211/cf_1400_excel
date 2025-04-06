@@ -1,0 +1,9 @@
+database:
+  dbname: testdb
+  user: testuser
+  password: testpass
+  host: localhost
+  port: 5432
+
+downloads_dir: tests/downloads
+converted_dir: tests/converted
