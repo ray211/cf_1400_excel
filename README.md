@@ -15,6 +15,7 @@ A CF 1400 (U.S. Customs Form 1400) is an official document used to record vessel
 - IMO and call sign numbers
 
 They are published as monthly PDF reports by U.S. Customs and are essential for trade analysis.
+Learn more by visiting: https://www.cbp.gov/document/report/cf-1400-record-vessel-foreign-trade-entrances
 
 ---
 
