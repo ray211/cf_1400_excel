@@ -9,6 +9,7 @@ import psycopg2
 import yaml
 import logging
 import datetime
+import pika
 from pathlib import Path
 from typing import Optional
 
@@ -62,6 +63,25 @@ class CF1400Excel:
         self.downloads_dir = Path(self.config.get("downloads_dir")).resolve()
         self.converted_dir = Path(self.config.get("converted_dir", "./converted")).resolve()
         self.converted_dir.mkdir(exist_ok=True)
+        
+    def callback(ch, method, properties, body):
+        filename = body.decode()
+        print(f"[RabbitMQ] Received file to process: {filename}")
+        converter = CF1400Excel()
+        converter.process_pdf_file(filename)
+        
+    def start_consumer():
+        try:
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host='rabbitmq', port=5672)
+            )
+            channel = connection.channel()
+            channel.queue_declare(queue='cf1400_files')
+            channel.basic_consume(queue='cf1400_files', on_message_callback=callback, auto_ack=True)
+            print("[RabbitMQ] Waiting for messages...")
+            channel.start_consuming()
+        except Exception as e:
+            print(f"[RabbitMQ] Consumer error: {e}")
 
     def load_config(self, path: str) -> dict:
         """Loads configuration from a YAML file."""
@@ -246,6 +266,28 @@ class CF1400Excel:
             logger.info("Data inserted into database.")
         except Exception as e:
             logger.error(f"Database connection or insertion error: {e}")
+            
+    def process_pdf_file(self, filename: str):
+        pdf_path = self.downloads_dir / filename
+        if not pdf_path.exists():
+            logger.warning(f"PDF does not exist: {pdf_path}")
+            return
+
+        file_id = self.get_cf1400_file_record(filename)
+        if not file_id:
+            logger.warning(f"No DB record for {filename}")
+            return
+
+        self.pdf_path = pdf_path
+        self.excel_path = self.converted_dir / (pdf_path.stem + "_Converted.xlsx")
+
+        df = self.pdf_to_excel(self.pdf_path, self.excel_path)
+        if df is not None:
+            excel_file_id = self.log_excel_conversion(file_id, self.excel_path.name)
+            if excel_file_id:
+                self.insert_to_database(df, excel_file_id)
+                self.mark_cf1400_file_processed(file_id)
+            
 
 
 if __name__ == "__main__":
